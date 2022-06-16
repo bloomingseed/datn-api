@@ -2,14 +2,18 @@ import uvicorn
 from init import dataset, category_labels, source_labels, my_models, process_pipeline, trim_middle_string, trim_middle_array, model_names, model_accuracies, arr_to_s, timestamp
 from typing import List
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import pandas as pd
 import io
-app = FastAPI()
-app.mount("/public", StaticFiles(directory="public"))
+
+app_configs = {
+        'docs_url': '/api/v1/docs',
+        'openapi_url': '/api/v1/openapi.json'
+        }
+
+app = FastAPI(**app_configs)
 app.add_middleware(CORSMiddleware, allow_origins = ["*"], allow_methods = ["*"],
         allow_headers = ["*"], allow_credentials = True, expose_headers = ["Content-Disposition"])
 
@@ -39,23 +43,14 @@ class Result(BaseModel):
     vectorization: str
     prediction: str
 
-def iterfile(file_path):
-    with open(file_path, mode="rb") as file_like:
-        yield from file_like
-
-@app.get("/", response_class=HTMLResponse)
-def get_homepage():
-    with open('./index.html', mode="rb") as file:
-        return file.read()
-
-@app.get("/dataset", response_model = Description)
+@app.get("/api/v1/dataset", response_model = Description)
 def read_dataset():
     return Description(
             length = len(dataset),
             models = [Model(key = key, name = model_names[key], accuracy = model_accuracies[key]) for key in model_names.keys()]
             )
 
-@app.get("/dataset/{index}", response_model = Row)
+@app.get("/api/v1/dataset/{index}", response_model = Row)
 def read_dataset_record(index: int):
     row = dataset.loc[index]
     return Row(
@@ -65,7 +60,7 @@ def read_dataset_record(index: int):
         url = row.url
         )
 
-@app.post("/predict/", response_model = Result)
+@app.post("/api/v1/predict/", response_model = Result)
 def create_item(entry: Entry):
     process_pipeline.process(entry.text, my_models[entry.model_name])
     if entry.export:
