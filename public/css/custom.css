@@ -1,0 +1,12 @@
+.pre-wrap {
+  white-space: pre-wrap !important;
+}
+
+#input-text {
+  height: 50vh;
+  min-height: auto;
+}
+
+.fz-md {
+  font-size: medium;
+}
