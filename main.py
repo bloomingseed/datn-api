@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 import io
+import json
 
 app_configs = {
         'docs_url': '/api/v1/docs',
@@ -60,19 +61,24 @@ def read_dataset_record(index: int):
         url = row.url
         )
 
-@app.post("/api/v1/predict/", response_model = Result)
+@app.post("/api/v1/predict/", response_model = Result, responses={
+        200: {
+            "content": {"text/plain": {}},
+            "description": "Download prediction as JSON string",
+        }
+    })
 def create_item(entry: Entry):
     process_pipeline.process(entry.text, my_models[entry.model_name])
     if entry.export:
-        df = pd.DataFrame({
+        data = {
             'input': [entry.text], 'model': [entry.model_name],
             'preprocess': [process_pipeline.preprocess],
             'tokenization': [process_pipeline.tokenization],
             'vectorization': [arr_to_s(process_pipeline.feature_selection.toarray()[0])],
             'prediction': [category_labels[int(process_pipeline.prediction[0])]]
-            })
-        response = StreamingResponse(io.StringIO(df.to_csv(index=False)), media_type="text/csv")
-        response.headers['Content-Disposition'] = 'attachment; filename=prediction_%s.csv' % timestamp()
+            }
+        response = StreamingResponse(io.StringIO(json.dumps(data, ensure_ascii = False)), media_type="text/plain")
+        response.headers['Content-Disposition'] = 'attachment; filename=prediction_%s.js' % timestamp()
         return response
     else:
         return Result(
